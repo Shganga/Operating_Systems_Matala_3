@@ -1,6 +1,7 @@
 #include "convex_hull.hpp"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 bool Point::operator<(const Point& other) const {
     return x < other.x || (x == other.x && y < other.y);
@@ -11,8 +12,10 @@ static float cross(const Point& O, const Point& A, const Point& B) {
 }
 
 std::vector<Point> convex_hull(std::vector<Point>& points) {
+    if (points.size() < 3) {
+        throw std::invalid_argument("At least 3 points are required to compute a convex hull.");
+    }
     size_t n = points.size(), k = 0;
-    if (n <= 1) return points;
     std::sort(points.begin(), points.end());
     std::vector<Point> hull(2 * n);
 
@@ -31,6 +34,10 @@ std::vector<Point> convex_hull(std::vector<Point>& points) {
 }
 
 float convex_hull_area(const std::vector<Point>& hull) {
+    if (hull.size() < 3) {
+        // Not enough points to form a polygon
+        return 0.0f;
+    }
     float area = 0.0f;
     size_t n = hull.size();
     for (size_t i = 0; i < n; ++i) {
