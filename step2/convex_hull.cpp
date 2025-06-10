@@ -52,7 +52,7 @@ std::deque<Point> convex_hull_deque(std::vector<Point>& points) {
     if (points.size() < 3) {
         throw std::invalid_argument("At least 3 points are required to compute a convex hull.");
     }
-    size_t n = points.size(), k = 0;
+    size_t n = points.size();
     std::sort(points.begin(), points.end());
     std::deque<Point> hull;
 
