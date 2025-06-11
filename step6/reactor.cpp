@@ -28,7 +28,7 @@ static void reactorLoop(Reactor* reactor) {
                 FD_SET(fd, &readfds);
                 if (fd > maxfd) maxfd = fd;
             }
-            fds_copy = reactor->fds; 
+            fds_copy = reactor->fds; // Copy the set!
         }
 
         struct timeval tv;
