@@ -13,6 +13,9 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <atomic>
 
 #define BACKLOG 10
 #define BUFSIZE 1024
@@ -20,6 +23,7 @@
 static std::vector<Point> points;
 static std::map<int, int> points_to_read;
 static std::mutex points_mutex; 
+static std::condition_variable_any ch_cond;
 
 std::string handle_command(const std::string& cmdline) {
     std::istringstream iss(cmdline);
@@ -36,6 +40,7 @@ std::string handle_command(const std::string& cmdline) {
             return response.str();
         }
         points.clear();
+        ch_cond.notify_all();
         response << "OK. Send " << n << " points (x,y per line):\n";
         return response.str();
     } else if (cmd == "CH") {
@@ -64,6 +69,7 @@ std::string handle_command(const std::string& cmdline) {
             response << "Invalid usage. Example: Newpoint 1,2\n";
         } else {
             points.push_back({x, y});
+            ch_cond.notify_all();
             response << "Point (" << x << "," << y << ") added.\n";
         }
         return response.str();
@@ -83,6 +89,7 @@ std::string handle_command(const std::string& cmdline) {
                 [x, y](const Point& p) { return p.x == x && p.y == y; });
             if (it != points.end()) {
                 points.erase(it);
+                ch_cond.notify_all();
                 response << "Point (" << x << "," << y << ") removed.\n";
             } else {
                 response << "Point (" << x << "," << y << ") not found.\n";
@@ -128,6 +135,7 @@ void* client_thread(int client_fd) {
                         } else {
                             points.push_back({x, y});
                             points_to_read[client_fd]--;
+                            ch_cond.notify_all();
                             if (points_to_read[client_fd] == 0) {
                                 response << "Graph updated with " << points.size() << " points.\n";
                             } else {
@@ -169,9 +177,36 @@ void* client_thread(int client_fd) {
     return nullptr;
 }
 
+void ch_monitor_thread() {
+    bool last_state = false;
+    while (true) {
+        std::unique_lock<std::mutex> lock(points_mutex);
+        ch_cond.wait(lock, []{ return true; }); // Wake up on notify
+
+        float area = 0.0f;
+        try {
+            if (points.size() >= 3) {
+                std::vector<Point> hull = convex_hull(points);
+                area = convex_hull_area(hull);
+            }
+        } catch (...) {}
+
+        bool now_at_least_100 = (area >= 100.0f);
+        if (now_at_least_100 && !last_state) {
+            std::cout << "At Least 100 units belongs to CH" << std::endl;
+        } else if (!now_at_least_100 && last_state) {
+            std::cout << "At Least 100 units no longer belongs to CH" << std::endl;
+        }
+        last_state = now_at_least_100;
+    }
+}
+
 void run_server(int port) {
     int listener;
     struct sockaddr_in serveraddr;
+
+    // Start the CH monitor thread
+    std::thread(ch_monitor_thread).detach();
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if (listener < 0) {
@@ -201,8 +236,10 @@ void run_server(int port) {
 
     std::cout << "Server started on port " << port << std::endl;
 
+    // Use the proactor to handle clients
     pthread_t proactor_tid = startProactor(listener, client_thread);
 
+    // Wait for the proactor thread to finish (infinite loop)
     pthread_join(proactor_tid, nullptr);
 
     close(listener);
