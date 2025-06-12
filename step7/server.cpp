@@ -138,7 +138,6 @@ void client_thread(int client_fd) {
                     }
                 }
                 if (!handled) {
-                    // Special handling for Newgraph to set points_to_read
                     std::istringstream iss(line);
                     std::string cmd;
                     iss >> cmd;
@@ -154,7 +153,7 @@ void client_thread(int client_fd) {
                 }
             }
         }
-        leftover = input; // Save any partial command
+        leftover = input; 
 
         std::string resp = response.str();
         if (!resp.empty()) {
