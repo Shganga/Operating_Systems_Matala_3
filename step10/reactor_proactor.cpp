@@ -17,7 +17,7 @@ struct Reactor {
 
 void* startReactor() {
     Reactor* reactor = new Reactor();
-    reactor->running = false; // Only run when runReactor() is called
+    reactor->running = false; 
     return reactor;
 }
 
@@ -41,10 +41,9 @@ int stopReactor(void* reactor_ptr) {
     return 0;
 }
 
-// Call this in your main loop to run the reactor (blocking)
 void runReactor(void* reactor_ptr) {
     Reactor* reactor = static_cast<Reactor*>(reactor_ptr);
-    reactor->running = true; // Start running now
+    reactor->running = true; 
     while (reactor->running) {
         fd_set readfds;
         FD_ZERO(&readfds);
